@@ -88,6 +88,8 @@ class FURGfs:
         total_blocos = len(self.fat)
         porcentagem_espaco_livre = (blocos_livres / total_blocos) * 100
         print(f"Espaço livre: {porcentagem_espaco_livre:.2f}%")
+        print(f"Blocos livres: {blocos_livres}%")
+        print(f"Quantidade total de blocos: {total_blocos}%")
 
 if __name__ == "__main__":
     fs = FURGfs("furgfs.fs")
