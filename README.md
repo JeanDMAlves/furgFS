@@ -19,4 +19,3 @@ pendrive, etc)
 5. remover um arquivo armazenado no FURGfs
 6. listar todos os arquivos armazenados no FURGfs
 7. listar o espaço livre em relação ao total do FURGfs
-

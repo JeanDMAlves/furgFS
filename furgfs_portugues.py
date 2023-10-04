@@ -1,5 +1,5 @@
 import os
-
+import struct
 class FURGfs:
     def __init__(self, caminho_fs):
         self.caminho_file_system = caminho_fs
@@ -7,6 +7,43 @@ class FURGfs:
         self.fat = []  # Tabela de alocação de arquivos
         self.arquivos = {}  # Dicionário para mapear nomes de arquivos para entradas na FAT
 
+    def load_fs(self):
+        if os.path.exists(self.caminho_file_system):
+            with open(self.caminho_file_system, 'rb') as arquivo_fs:
+                # Lê a tabela FAT e os dados dos arquivos
+                dados = arquivo_fs.read()
+                tamanho_cabecalho = struct.calctamanho('I')
+                qtd_blocos = len(dados) // self.block_tamanho
+                self.fat = struct.unpack(f'{qtd_blocos}I', dados[:tamanho_cabecalho])
+                informacoes_dos_arquivos = dados[tamanho_cabecalho:]
+                while informacoes_dos_arquivos:
+                    tamanho_nome = struct.unpack('I', informacoes_dos_arquivos[:4])[0]
+                    nome = struct.unpack(f'{tamanho_nome}s', informacoes_dos_arquivos[4:4 + tamanho_nome])[0].decode('utf-8')
+                    tamanho, contagem_de_blocos = struct.unpack('II', informacoes_dos_arquivos[4 + tamanho_nome:8 + tamanho_nome])
+                    blocos_dos_arquivos = struct.unpack(f'{contagem_de_blocos}I', informacoes_dos_arquivos[8 + tamanho_nome:8 + tamanho_nome + contagem_de_blocos * 4])
+                    self.arquivos[len(self.arquivos)] = {
+                        'nome': nome,
+                        'tamanho': tamanho,
+                        'blocos': list(blocos_dos_arquivos)
+                    }
+                    informacoes_dos_arquivos = informacoes_dos_arquivos[8 + tamanho_nome + contagem_de_blocos * 4:]
+
+    def save_fs(self):
+        with open(self.fs_path, 'wb') as arquivo_fs:
+            # Salva a tabela FAT
+            dados_tabela_fat = struct.pack(f'{len(self.fat)}I', *self.fat)
+            arquivo_fs.write(dados_tabela_fat)
+
+            # Salva os dados dos arquivos
+            for informacoes_arquivo in self.arquivos.values():
+                nome = informacoes_arquivo['nome'].encode('utf-8')
+                tamanho_nome = len(nome)
+                tamanho = informacoes_arquivo['tamanho']
+                contagem_de_blocos = len(informacoes_arquivo['blocos'])
+                blocos_dos_arquivos = struct.pack(f'{contagem_de_blocos}I', *informacoes_arquivo['blocos'])
+                informacoes_dos_arquivos = struct.pack(f'I{tamanho_nome}sII', tamanho_nome, nome, tamanho, contagem_de_blocos) + blocos_dos_arquivos
+                arquivo_fs.write(informacoes_dos_arquivos)
+    
     def criar_fs(self, tamanho_do_fs):
         with open(self.caminho_file_system, 'wb') as arquivo_fs:
             arquivo_fs.truncate(tamanho_do_fs)
@@ -34,7 +71,7 @@ class FURGfs:
 
             index_arquivo = len(self.arquivos)
             self.arquivos[index_arquivo] = {
-                'nome': os.path.basename(caminho_arquivo),
+                'nome': os.path.basenome(caminho_arquivo),
                 'tamanho': tamanho_arquivo,
                 'blocos': blocos_livres[:qtd_blocos_necessarios]
             }
@@ -91,7 +128,7 @@ class FURGfs:
         print(f"Blocos livres: {blocos_livres}%")
         print(f"Quantidade total de blocos: {total_blocos}%")
 
-if __name__ == "__main__":
+if __nome__ == "__main__":
     fs = FURGfs("furgfs.fs")
     print("\nOperações disponíveis:")
     print("1. Criar FURGfs")
@@ -107,8 +144,8 @@ if __name__ == "__main__":
         choice = input("Digite o número da operação desejada: ")
 
         if choice == "1":
-            size = int(input("Digite o tamanho desejado para o FURGfs (em bytes): "))
-            fs.criar_fs(size)
+            tamanho = int(input("Digite o tamanho desejado para o FURGfs (em bytes): "))
+            fs.criar_fs(tamanho)
             print("FURGfs criado com sucesso.")
 
         elif choice == "2":
@@ -136,4 +173,5 @@ if __name__ == "__main__":
             fs.mostrar_espaço_livre()
 
         elif choice == "0":
+            fs.save_fs()
             break
