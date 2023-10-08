@@ -1,56 +1,40 @@
-import os
-import struct
+import os # Fazer a comunicação com o sistema operacional
+import pickle # Biblioteca para serializar e deserializar objetos (estruturas) python
+
 class FURGfs:
     def __init__(self, caminho_fs):
         self.caminho_file_system = caminho_fs
         self.tamanho_do_bloco = 4096  # Tamanho do bloco - 4kb
         self.fat = []  # Tabela de alocação de arquivos
-        self.arquivos = {}  # Dicionário para mapear nomes de arquivos para entradas na FAT
+        self.arquivos = {}  # Dicionário para mapear infos de arquivos para entradas na FAT
+        self.carregar_fs()
 
-    def load_fs(self):
+    def carregar_fs(self):
         if os.path.exists(self.caminho_file_system):
             with open(self.caminho_file_system, 'rb') as arquivo_fs:
-                # Lê a tabela FAT e os dados dos arquivos
-                dados = arquivo_fs.read()
-                tamanho_cabecalho = struct.calctamanho('I')
-                qtd_blocos = len(dados) // self.block_tamanho
-                self.fat = struct.unpack(f'{qtd_blocos}I', dados[:tamanho_cabecalho])
-                informacoes_dos_arquivos = dados[tamanho_cabecalho:]
-                while informacoes_dos_arquivos:
-                    tamanho_nome = struct.unpack('I', informacoes_dos_arquivos[:4])[0]
-                    nome = struct.unpack(f'{tamanho_nome}s', informacoes_dos_arquivos[4:4 + tamanho_nome])[0].decode('utf-8')
-                    tamanho, contagem_de_blocos = struct.unpack('II', informacoes_dos_arquivos[4 + tamanho_nome:8 + tamanho_nome])
-                    blocos_dos_arquivos = struct.unpack(f'{contagem_de_blocos}I', informacoes_dos_arquivos[8 + tamanho_nome:8 + tamanho_nome + contagem_de_blocos * 4])
-                    self.arquivos[len(self.arquivos)] = {
-                        'nome': nome,
-                        'tamanho': tamanho,
-                        'blocos': list(blocos_dos_arquivos)
-                    }
-                    informacoes_dos_arquivos = informacoes_dos_arquivos[8 + tamanho_nome + contagem_de_blocos * 4:]
+                dados = pickle.load(arquivo_fs) # Deserializa os dados salvos
+                self.fat = dados['fat'] # Atribui o cabeçalho
+                self.arquivos = dados['arquivos'] # Atribui os dados dos arquivos
 
-    def save_fs(self):
-        with open(self.fs_path, 'wb') as arquivo_fs:
-            # Salva a tabela FAT
-            dados_tabela_fat = struct.pack(f'{len(self.fat)}I', *self.fat)
-            arquivo_fs.write(dados_tabela_fat)
-
-            # Salva os dados dos arquivos
-            for informacoes_arquivo in self.arquivos.values():
-                nome = informacoes_arquivo['nome'].encode('utf-8')
-                tamanho_nome = len(nome)
-                tamanho = informacoes_arquivo['tamanho']
-                contagem_de_blocos = len(informacoes_arquivo['blocos'])
-                blocos_dos_arquivos = struct.pack(f'{contagem_de_blocos}I', *informacoes_arquivo['blocos'])
-                informacoes_dos_arquivos = struct.pack(f'I{tamanho_nome}sII', tamanho_nome, nome, tamanho, contagem_de_blocos) + blocos_dos_arquivos
-                arquivo_fs.write(informacoes_dos_arquivos)
+    def salvar_fs(self):
+        dados = {
+            'fat': self.fat, # Cabeçalho 
+            'arquivos': self.arquivos # Dados dos arquivos
+        }
+        with open(self.caminho_file_system, 'wb') as arquivo_fs:
+            pickle.dump(dados, arquivo_fs) # Salvar os arquivos -> serializando dentro do furgfs 
     
     def criar_fs(self, tamanho_do_fs):
-        with open(self.caminho_file_system, 'wb') as arquivo_fs:
-            arquivo_fs.truncate(tamanho_do_fs)
-            quantidade_de_blocos = tamanho_do_fs // self.tamanho_do_bloco
-            self.fat = [-1] * quantidade_de_blocos
+        if os.path.exists(self.caminho_file_system): # Checa se o FS existe
+            print("Sistema de arquivos já existe!")
+        else: # Se não existir, podemos criá-lo
+            with open(self.caminho_file_system, 'wb') as arquivo_fs:
+                arquivo_fs.truncate(tamanho_do_fs) # Aloca em disco o tamanho informado pelo usuário
+                quantidade_de_blocos = tamanho_do_fs // self.tamanho_do_bloco
+                self.fat = [-1] * quantidade_de_blocos # Para cada bloco existente, se ele estiver fazio terá valor -1
 
     def copiar_para_fs(self, caminho_arquivo):
+        # Checagens necessárias para que consigamos copiar os arquivos para o nosso FS
         if not os.path.exists(caminho_arquivo):
             print(f"O arquivo '{caminho_arquivo}' não existe.")
             return
@@ -58,32 +42,38 @@ class FURGfs:
         if not self.fat:
             print("O sistema de arquivos FURGfs não foi criado ainda.")
             return
+        # ----------------------------------------------------------------
 
         with open(caminho_arquivo, 'rb') as arquivo_fonte:
             dados_arquivo = arquivo_fonte.read()
             tamanho_arquivo = len(dados_arquivo)
-            qtd_blocos_necessarios = (tamanho_arquivo + self.tamanho_do_bloco - 1) // self.tamanho_do_bloco
+            # Número de blocos que o arquivo ocupará
+            qtd_blocos_necessarios = (tamanho_arquivo + self.tamanho_do_bloco - 1) // self.tamanho_do_bloco 
 
-            blocos_livres = [i for i, bloco in enumerate(self.fat) if bloco == -1]
+            # Verificação se existe espaço necessário para guardar o arquivo
+            blocos_livres = [i for i, bloco in enumerate(self.fat) if bloco == -1] # Lista de índices dos blocos livres 
             if len(blocos_livres) < qtd_blocos_necessarios:
                 print("Espaço insuficiente no FURGfs para copiar o arquivo.")
                 return
 
-            index_arquivo = len(self.arquivos)
+            # Sempre adicionará o final, funciona como um AUTOIMPLEMENT no Postgre, tipo um contador
+            index_arquivo = len(self.arquivos) # Tipo uma 'chave primária' para acesso através do dicionário python
             self.arquivos[index_arquivo] = {
-                'nome': os.path.basenome(caminho_arquivo),
-                'tamanho': tamanho_arquivo,
-                'blocos': blocos_livres[:qtd_blocos_necessarios]
+                'nome': os.path.basename(caminho_arquivo), # Nome o arquivo com a extensão (ex: .jpeg, .png)
+                'tamanho': tamanho_arquivo, # Tamanho em bytes
+                'blocos': blocos_livres[:qtd_blocos_necessarios] # Blocos que onde esse arquivo será armazenado
             }
 
+            # Pedaço de código para dizer que aquele bloco será utilizado pelo arquivo X através do índice dele  
             for bloco in self.arquivos[index_arquivo]['blocos']:
-                self.fat[bloco] = index_arquivo
+                self.fat[bloco] = index_arquivo 
 
+            # Finalmente escrevendo os dados do arquivo no furgfs.fs
             with open(self.caminho_file_system, 'rb+') as arquivo_fs:
                 for bloco in self.arquivos[index_arquivo]['blocos']:
-                    deslocamento = bloco * self.tamanho_do_bloco
-                    arquivo_fs.seek(deslocamento)
-                    arquivo_fs.write(dados_arquivo[deslocamento : deslocamento + self.tamanho_do_bloco])
+                    deslocamento = bloco * self.tamanho_do_bloco # O quanto precisamos deslocar na lista para conseguirmos armazenar o bloco
+                    arquivo_fs.seek(deslocamento) # "pula" até o pedaço do arquivo, o tamanho "pulado" (numero de bytes) é determinado pela variável deslocamento 
+                    arquivo_fs.write(dados_arquivo[deslocamento : deslocamento + self.tamanho_do_bloco]) # Escrevendo os dados do arquivo nos blocos dentro do FS
 
     def copiar_do_fs(self, index_arquivo, caminho_destino):
         if index_arquivo not in self.arquivos:
@@ -125,10 +115,10 @@ class FURGfs:
         total_blocos = len(self.fat)
         porcentagem_espaco_livre = (blocos_livres / total_blocos) * 100
         print(f"Espaço livre: {porcentagem_espaco_livre:.2f}%")
-        print(f"Blocos livres: {blocos_livres}%")
-        print(f"Quantidade total de blocos: {total_blocos}%")
+        print(f"Blocos livres: {blocos_livres}")
+        print(f"Quantidade total de blocos: {total_blocos}")
 
-if __nome__ == "__main__":
+if __name__ == "__main__":
     fs = FURGfs("furgfs.fs")
     print("\nOperações disponíveis:")
     print("1. Criar FURGfs")
@@ -173,5 +163,5 @@ if __nome__ == "__main__":
             fs.mostrar_espaço_livre()
 
         elif choice == "0":
-            fs.save_fs()
+            fs.salvar_fs()
             break
