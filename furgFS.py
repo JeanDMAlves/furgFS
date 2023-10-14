@@ -76,45 +76,45 @@ class FURGfs:
                     arquivo_fs.write(dados_arquivo[deslocamento : deslocamento + self.tamanho_do_bloco]) # Escrevendo os dados do arquivo nos blocos dentro do FS
 
     def copiar_do_fs(self, index_arquivo, caminho_destino):
-        if index_arquivo not in self.arquivos:
+        if index_arquivo not in self.arquivos: #verificando se o arquivo com o índice especificado (index_arquivo) existe no sistema de arquivos
             print(f"O arquivo com o índice {index_arquivo} não existe no FURGfs.")
             return
 
-        dados_arquivo = self.arquivos[index_arquivo]
+        dados_arquivo = self.arquivos[index_arquivo] #Se o arquivo com o índice especificado existir, este trecho de código recupera os dados desse arquivo do dicionário self.arquivos
 
-        with open(self.caminho_file_system, 'rb') as arquivo_fs:
-            with open(caminho_destino, 'wb') as arquivo_destino:
-                for bloco in dados_arquivo['blocos']:
-                    deslocamento = bloco * self.tamanho_do_bloco
-                    arquivo_fs.seek(deslocamento)
-                    arquivo_destino.write(arquivo_fs.read(dados_arquivo['tamanho']))
+        with open(self.caminho_file_system, 'rb') as arquivo_fs: #abre o arquivo do sistema de arquivos para leitura binária com o caminho dado em self.caminho_file_system.
+            with open(caminho_destino, 'wb') as arquivo_destino: #abre um arquivo de destino no caminho especificado para escrita binária. Este é o local onde o arquivo será copiado
+                for bloco in dados_arquivo['blocos']: #o loop itera pelos blocos do arquivo que precisam ser copiados.
+                    deslocamento = bloco * self.tamanho_do_bloco #o quanto precisamos deslocar na lista para conseguirmos armazenar o bloco
+                    arquivo_fs.seek(deslocamento) #"pula" até o pedaço do arquivo, o tamanho "pulado" (numero de bytes) é determinado pela variável deslocamento
+                    arquivo_destino.write(arquivo_fs.read(dados_arquivo['tamanho'])) # o código lê os dados do arquivo do sistema, com base no tamanho do arquivo, e escreve esses dados no arquivo de destino
 
-    def renomear_arquivo(self, index_arquivo, novo_nome):
-        if index_arquivo not in self.arquivos:
+    def renomear_arquivo(self, index_arquivo, novo_nome): 
+        if index_arquivo not in self.arquivos: 
             print(f"O arquivo com o índice {index_arquivo} não existe no FURGfs.")
             return
 
-        self.arquivos[index_arquivo]['nome'] = novo_nome
+        self.arquivos[index_arquivo]['nome'] = novo_nome # esta linha atualiza o nome do arquivo 'nome' no dicionário self.arquivos para o novo nome especificado em 'novo_nome'
 
     def remove_arquivo(self, index_arquivo):
         if index_arquivo not in self.arquivos:
             print(f"O arquivo com o índice {index_arquivo} não existe no FURGfs.")
             return
 
-        for bloco in self.arquivos[index_arquivo]['blocos']:
-            self.fat[bloco] = -1
+        for bloco in self.arquivos[index_arquivo]['blocos']: #caso o arquivo com o índice especificado existir, este loop itera pelos blocos que compõem o arquivo
+            self.fat[bloco] = -1 #libera os blocos do arquivo, tornando-os disponíveis para uso futuro
 
-        del self.arquivos[index_arquivo]
+        del self.arquivos[index_arquivo] #remove o registro do arquivo do dicionário
 
     def listar_arquivos(self):
-        for index, dados_arquivo in self.arquivos.items():
-            print(f"Índice: {index}, Nome: {dados_arquivo['nome']}, Tamanho: {dados_arquivo['tamanho']} bytes")
+        for index, dados_arquivo in self.arquivos.items(): #loop itera pelos itens do dicionário self.arquivos, onde as informações sobre os arquivos estão armazenadas.
+            print(f"Índice: {index}, Nome: {dados_arquivo['nome']}, Tamanho: {dados_arquivo['tamanho']} bytes") #para cada arquivo encontrado no sistema de arquivos, esta linha imprime informações sobre o arquivo
 
     def mostrar_espaço_livre(self):
-        blocos_livres = sum(1 for bloco in self.fat if bloco == -1)
-        total_blocos = len(self.fat)
-        porcentagem_espaco_livre = (blocos_livres / total_blocos) * 100
-        print(f"Espaço livre: {porcentagem_espaco_livre:.2f}%")
+        blocos_livres = sum(1 for bloco in self.fat if bloco == -1) #calcula o número de blocos livres no sistema de arquivos
+        total_blocos = len(self.fat) #calcula o número total de blocos no sistema de arquivos
+        porcentagem_espaco_livre = (blocos_livres / total_blocos) * 100 #calcula a porcentagem do espaço livre em relação ao espaço total disponível
+        print(f"Espaço livre: {porcentagem_espaco_livre:.2f}%") ##imprime a porcentagem de espaço livre
         print(f"Blocos livres: {blocos_livres}")
         print(f"Quantidade total de blocos: {total_blocos}")
 
