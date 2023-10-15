@@ -131,37 +131,37 @@ if __name__ == "__main__":
     print("0. Sair")
     while True:
         
-        choice = input("Digite o número da operação desejada: ")
+        choice = input("Digite o número da operação desejada: ") #solicita ao usuário que insira o número correspondente à operação desejada
 
-        if choice == "1":
+        if choice == "1": #cria um sistema de arquivos (FURGfs) com o tamanho especificado pelo usuário
             tamanho = int(input("Digite o tamanho desejado para o FURGfs (em bytes): "))
             fs.criar_fs(tamanho)
             print("FURGfs criado com sucesso.")
 
-        elif choice == "2":
+        elif choice == "2": #permite ao usuário copiar um arquivo para o sistema de arquivos.
             caminho_arquivo = input("Digite o caminho do arquivo que deseja copiar para o FURGfs: ")
             fs.copiar_para_fs(caminho_arquivo)
 
-        elif choice == "3":
+        elif choice == "3": #permite ao usuário copiar um arquivo do sistema de arquivos para um destino específico.
             index_arquivo = int(input("Digite o índice do arquivo que deseja copiar do FURGfs: "))
             caminho_destino = input("Digite o caminho para onde deseja copiar o arquivo: ")
             fs.copiar_do_fs(index_arquivo, caminho_destino)
 
-        elif choice == "4":
+        elif choice == "4": #permite ao usuário renomear um arquivo no sistema de arquivos
             index_arquivo = int(input("Digite o índice do arquivo que deseja renomear: "))
             novo_nome = input("Digite o novo nome do arquivo: ")
             fs.renomear_arquivo(index_arquivo, novo_nome)
 
-        elif choice == "5":
+        elif choice == "5": #permite ao usuário remover um arquivo do sistema de arquivos
             index_arquivo = int(input("Digite o índice do arquivo que deseja remover: "))
             fs.remove_arquivo(index_arquivo)
 
-        elif choice == "6":
+        elif choice == "6": #lista os arquivos presentes no sistema de arquivos
             fs.listar_arquivos()
 
-        elif choice == "7":
+        elif choice == "7": #mostra informações sobre o espaço livre no sistema de arquivos
             fs.mostrar_espaço_livre()
 
-        elif choice == "0":
+        elif choice == "0": #Encerra o programa após salvar as alterações no sistema de arquivos
             fs.salvar_fs()
             break
